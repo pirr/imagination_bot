@@ -9,7 +9,6 @@ from subprocess import Popen, PIPE
 from time import sleep
 from room import Room
 
-
 bot = telebot.TeleBot(config.token)
 imagi_room = Room
 
@@ -27,31 +26,72 @@ def get_select(message):
         new_room(message)
 
     elif message.text == 'Выбрать существующую комнату':
-        for room, items in imagi_room.get_rooms():
-            print(room, items)
+        choosing_room(message)
+
 
 def new_room(message):
     imagi_room.new(chat_id=message.chat.id)
-    print(imagi_room.__cash__)
+    # print(imagi_room.__cash__)
     # bot.send_message(message.chat.id, 'Room {} created'.format(message.chat.id))
     photo = bot.send_message(message.chat.id, 'Отправьте фото с подписью')
     bot.register_next_step_handler(photo, add_master_photo)
 
 
-def add_master_photo(message):
+@bot.inline_handler(lambda query: len(query.query) > 0)
+def choosing_room(message):
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    for room_id in imagi_room.get_room_ids():
+        room = imagi_room.get_room_by_id(room_id)
+        # print(room['master_name'])
+        keyboard.add(telebot.types.InlineKeyboardButton(text=room['master_name'], callback_data='room_' + str(room_id)))
+    bot.send_message(message.chat.id, text='Выберите комнату', reply_markup=keyboard)
 
+
+@bot.callback_query_handler(func=lambda c: c.data)
+def call_back(c):
+    if 'room_' in c.data:
+        room_id = int(c.data.split('_')[1])
+        c.message.room_id = room_id
+        print('call back room id:', c.message.room_id)
+        bot.register_next_step_handler(c.message, add_player_photo)
+
+
+def add_master_photo(message):
     if message.content_type != 'photo':
         bot.send_message(message.chat.id, 'Это не фото!')
         new_room(message)
 
-    elif not message.caption.strip():
+    elif not message.caption or not message.caption.strip():
         bot.send_message(message.chat.id, 'Подпись та забыли!')
         new_room(message)
 
     else:
-        print('test photo_id', message.photo[-1].file_id)
-        print('test photo_caption', message.caption)
-        imagi_room.add_master_photo(message.chat.id, message.photo[-1].file_id, message.caption)
+        user_name = ' '.join([message.chat.first_name, message.chat.last_name])
+        imagi_room.add_master_photo(message.chat.id,
+                                    message.photo[-1].file_id,
+                                    message.caption,
+                                    user_name
+                                    )
+        print(imagi_room.__cash__)
+
+
+def add_player_photo(message):
+    print('add_player_photo')
+    room_id = message.room_id
+    room = imagi_room.get_room_by_id(room_id)
+    photo_message = bot.send_message(message.chat.id, 'Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']))
+
+    if photo_message.content_type != 'photo':
+        bot.send_message(message.chat.id, 'Это не фото!')
+        add_player_photo(message)
+
+    else:
+        user_name = ' '.join([message.chat.first_name, message.chat.last_name])
+        imagi_room.add_player(room_id,
+                              photo_message.chat.id,
+                              user_name,
+                              photo_message.photo[-1].file_id
+                              )
         print(imagi_room.__cash__)
 
 
@@ -61,22 +101,12 @@ def test(message):
     print('test photo_caption', message.caption)
 
 
-
 def processPhotoMessage(message):
-
     caption = message.caption
     fileID = message.photo[-1].file_id
     print('fileID =', fileID)
     print('message.caption =', caption)
     return fileID, caption
-
-
-
-def run_game(chat_id):
-    status = None
-    while not status:
-        status = get_from_cash(chat_id)
-        sleep(1)
 
 
 # @bot.message_handler(content_types=['photo'])
@@ -92,41 +122,6 @@ def run_game(chat_id):
 #     except Exception as e:
 #         print(e)
 #         print('Photo not sending')
-
-
-
-def cash_updater(chat_id, photo_id, caption):
-
-    if not CASH:
-        CASH[chat_id] = {chat_id: (photo_id, caption)}
-    elif chat_id in CASH:
-        print('Room creating')
-    else:
-        for chat in list(CASH):
-            if len(CASH[chat]) < 2 and chat_id not in CASH[chat]:
-                CASH[chat].update({chat_id: (photo_id, caption)})
-
-
-def get_from_cash(chat_id):
-
-    if chat_id in CASH:
-        print('You are master')
-        if len(CASH[chat_id]) > 1:
-            for user_id in list(CASH[chat_id]):
-                if user_id != chat_id:
-                    photo_id, caption = CASH[chat_id][user_id]
-                    bot.send_photo(chat_id=chat_id, photo=photo_id, caption=caption)
-                    return 'ok'
-
-    else:
-        for chat in list(CASH):
-            if chat_id in CASH[chat]:
-                print('YOU ARE PLAYER')
-                for user_id in list(CASH[chat]):
-                    if user_id != chat_id:
-                        photo_id, caption = CASH[chat_id][user_id]
-                        bot.send_photo(chat_id=chat_id, photo=photo_id, caption=caption)
-                        return 'ok'
 
 
 
