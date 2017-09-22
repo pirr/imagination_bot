@@ -37,23 +37,30 @@ def new_room(message):
     bot.register_next_step_handler(photo, add_master_photo)
 
 
-@bot.inline_handler(lambda query: len(query.query) > 0)
+# @bot.inline_handler(lambda query: len(query.query) > 0)
 def choosing_room(message):
     keyboard = telebot.types.InlineKeyboardMarkup()
     for room_id in imagi_room.get_room_ids():
         room = imagi_room.get_room_by_id(room_id)
-        # print(room['master_name'])
         keyboard.add(telebot.types.InlineKeyboardButton(text=room['master_name'], callback_data='room_' + str(room_id)))
     bot.send_message(message.chat.id, text='Выберите комнату', reply_markup=keyboard)
 
 
-@bot.callback_query_handler(func=lambda c: c.data)
-def call_back(c):
-    if 'room_' in c.data:
-        room_id = int(c.data.split('_')[1])
-        c.message.room_id = room_id
-        print('call back room id:', c.message.room_id)
-        bot.register_next_step_handler(c.message, add_player_photo)
+@bot.callback_query_handler(func=lambda c: 'room_' in c.data)
+def call_back_room(c):
+    room_id = int(c.data.split('_')[1])
+    c.message.room_id = room_id
+    room = imagi_room.get_room_by_id(room_id)
+    print('call back room id:', c.message.room_id)
+    try:
+        # bot.edit_message_text(chat_id=c.message.chat.id,
+        #                       message_id=c.message.message_id,
+        #                       text='Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']))
+        add_player_photo(c.message)
+        # print('calback photo:', photo.photo[-1].file_id)
+
+    except Exception as e:
+        print('callback error:', e)
 
 
 def add_master_photo(message):
@@ -72,8 +79,7 @@ def add_master_photo(message):
                                     message.caption,
                                     user_name
                                     )
-        print(imagi_room.__cash__)
-
+        # print(imagi_room.__cash__)
 
 def add_player_photo(message):
     print('add_player_photo')
@@ -82,11 +88,11 @@ def add_player_photo(message):
     photo_message = bot.send_message(message.chat.id, 'Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']))
 
     if photo_message.content_type != 'photo':
-        bot.send_message(message.chat.id, 'Это не фото!')
-        add_player_photo(message)
+        bot.send_message(message.chat.id, 'Это не фото!!')
+        # add_player_photo(message)
 
     else:
-        user_name = ' '.join([message.chat.first_name, message.chat.last_name])
+        user_name = ' '.join([photo_message.chat.first_name, photo_message.chat.last_name])
         imagi_room.add_player(room_id,
                               photo_message.chat.id,
                               user_name,
