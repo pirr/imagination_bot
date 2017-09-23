@@ -26,6 +26,10 @@ class Room:
     def get_room_ids(cls):
         return list(cls.__cash__)
 
+    @classmethod
+    def get_room_ids_str(cls):
+        return [str(room_id) for room_id in cls.get_room_ids()]
+
 
     @classmethod
     def get_room_by_id(cls, chat_id):
