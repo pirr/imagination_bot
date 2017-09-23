@@ -39,6 +39,7 @@ def new_room(message):
 
 # @bot.inline_handler(lambda query: len(query.query) > 0)
 def choosing_room(message):
+    variants = []
     keyboard = telebot.types.InlineKeyboardMarkup()
     for room_id in imagi_room.get_room_ids():
         room = imagi_room.get_room_by_id(room_id)
@@ -48,19 +49,16 @@ def choosing_room(message):
 
 @bot.callback_query_handler(func=lambda c: 'room_' in c.data)
 def call_back_room(c):
+    bot.get_chat(chat_id=c.message.chat.id)
     room_id = int(c.data.split('_')[1])
     c.message.room_id = room_id
     room = imagi_room.get_room_by_id(room_id)
-    print('call back room id:', c.message.room_id)
-    try:
-        # bot.edit_message_text(chat_id=c.message.chat.id,
-        #                       message_id=c.message.message_id,
-        #                       text='Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']))
-        add_player_photo(c.message)
-        # print('calback photo:', photo.photo[-1].file_id)
-
-    except Exception as e:
-        print('callback error:', e)
+    # c.message.room_id = room_id
+    # message = bot.edit_message_text(text='Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']),
+    #                                 chat_id=c.message.chat.id, message_id=c.message.message_id)
+    print('end calback')
+    # message.room_id = room_id
+    # add_player_photo(c.message)
 
 
 def add_master_photo(message):
@@ -81,24 +79,32 @@ def add_master_photo(message):
                                     )
         # print(imagi_room.__cash__)
 
+
+@bot.message_handler(commands=['room'])
 def add_player_photo(message):
     print('add_player_photo')
-    room_id = message.room_id
-    room = imagi_room.get_room_by_id(room_id)
-    photo_message = bot.send_message(message.chat.id, 'Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']))
-
-    if photo_message.content_type != 'photo':
-        bot.send_message(message.chat.id, 'Это не фото!!')
-        # add_player_photo(message)
-
-    else:
-        user_name = ' '.join([photo_message.chat.first_name, photo_message.chat.last_name])
-        imagi_room.add_player(room_id,
-                              photo_message.chat.id,
-                              user_name,
-                              photo_message.photo[-1].file_id
-                              )
-        print(imagi_room.__cash__)
+    print(message)
+    # room_id = message.room_id
+    # room = imagi_room.get_room_by_id(room_id)
+    # photo_message = bot.send_message(message.chat.id, 'Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']))
+    # print('photo mess:', photo_message.content_type)
+    # if message.content_type != 'photo':
+    #     bot.send_message(message.chat.id, 'Это не фото!!')
+    #     message = bot.edit_message_text(chat_id=message.chat.id,
+    #                                           message_id=message.message_id,
+    #                                           text='Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']))
+    #     message.room_id = room_id
+    #     add_master_photo(message)
+    #     # add_player_photo(message)
+    #
+    # else:
+    #     user_name = ' '.join([message.chat.first_name, message.chat.last_name])
+    #     imagi_room.add_player(room_id,
+    #                           message.chat.id,
+    #                           user_name,
+    #                           message.photo[-1].file_id
+    #                           )
+    #     print(imagi_room.__cash__)
 
 
 def test(message):
