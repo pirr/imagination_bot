@@ -12,17 +12,20 @@ imagi_room = Room
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    kb.add('Новая комната', 'Выбрать существующую комнату')
-    selected = bot.send_message(message.chat.id, 'Начнем?', reply_markup=kb)
+    # kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    # kb.add('Новая игровая', 'Выбрать существующую игровую')
+    text = '\n'.join(['/1 Новая игровая', '/2 Выбрать существующую игровую'])
+    selected = bot.send_message(message.chat.id, text=text)
     bot.register_next_step_handler(selected, get_select)
 
 
 def get_select(message):
-    if message.text == 'Новая комната':
+    if message.text == '/1':
         new_room(message)
-    elif message.text == 'Выбрать существующую комнату':
+    elif message.text == '/2':
         choosing_room(message)
+    else:
+        start(message)
 
 
 def new_room(message):
@@ -38,8 +41,9 @@ def choosing_room(message):
             room = imagi_room.get_room_by_id(room_id)
             if room['status'] == 'wait':
                 rooms.append(' '.join(['/' + str(room_id), room['master_name']]))
+        if not rooms:
+            bot.send_message(message.chat.id, text='Нет игровых /start')
         rooms_str = '\n'.join(rooms)
-        print(rooms_str)
         message = bot.send_message(message.chat.id, text=rooms_str)
         bot.register_next_step_handler(message, room_selected)
     except Exception as e:
@@ -50,7 +54,7 @@ def room_selected(message):
     try:
         room_id = int(message.text.strip('/'))
         room = imagi_room.get_room_by_id(room_id)
-        photo_mess = bot.send_message(message.chat.id, text='Отправьте фото ассоциирующееся с {}'.format(room['img_mess']))
+        photo_mess = bot.send_message(message.chat.id, text='Отправьте фото ассоциирующееся с "{}"'.format(room['img_mess']))
         bot.register_next_step_handler(photo_mess, partial(add_player_photo, room_id))
     except Exception as e:
         raise e
@@ -72,7 +76,7 @@ def add_master_photo(message):
                                     message.caption,
                                     user_name
                                     )
-        bot.send_message(message.chat.id, text='Ваша игровая комната создана')
+        bot.send_message(message.chat.id, text='Ваша игровая создана')
 
 
 def add_player_photo(room_id, message):
@@ -89,20 +93,40 @@ def add_player_photo(room_id, message):
 
 
 def in_game(room_id, user_name):
-    message = bot.send_message(room_id, text='В Вашу игровую зашел {} начать игру?/{}'.format(user_name, room_id))
-    bot.register_next_step_handler(message, partial(run_game, room_id))
+    room = imagi_room.get_room_by_id(room_id)
+    message = bot.send_message(room_id,
+                               text='В Вашу игровую зашел {}. Всего в игровой {} игроков. Начать игру?/{}'
+                               .format(user_name, len(room['players']), room_id))
+    stat = 'Игра началась'
+    bot.register_next_step_handler(message, partial(run_game, room_id, stat))
 
 
-def run_game(room_id, message):
+def run_game(room_id, stat, message):
     if message.text.strip('/') == str(room_id):
         imagi_room.change_status(room_id, 'in_game')
         room = imagi_room.get_room_by_id(room_id)
         photo_ids = [room['master_photo_id']] + [room['players'][player_id]['photo_id'] for player_id in list(room['players'])]
         shuffle(photo_ids)
         for chat_id in list(room['players']):
-            bot.send_message(chat_id, text='Игра началась')
-            for photo_id in photo_ids:
-                bot.send_photo(chat_id, photo=photo_id, caption='/'+photo_id)
+            bot.send_message(chat_id, text=stat)
+            for i, photo_id in enumerate(photo_ids):
+                bot.send_photo(chat_id, photo=photo_id, caption='/{}'.format(i), )
+        bot.register_next_step_handler(message, partial(check, room_id, photo_ids))
+
+
+def check(room_id, photo_ids, message):
+    room = imagi_room.get_room_by_id(room_id)
+    if message.text.strip('/') in [str(i) for i, _ in enumerate(photo_ids)]:
+        photo_id = photo_ids[int(message.text.strip('/'))]
+        if room['master_photo_id'] == photo_id:
+            bot.send_message(message.chat.id, text='Правильно! Молодец!')
+        else:
+            bot.send_message(message.chat.id, text='Не угадал')
+            bot.send_photo(message.chat.id, photo=room['master_photo_id'], caption='Верная картинка')
+    else:
+        message.text = str(room_id)
+        stat = 'Выберите фото'
+        bot.register_next_step_handler(message, partial(run_game, room_id, stat))
 
 
 if __name__ == '__main__':
