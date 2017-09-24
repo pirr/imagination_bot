@@ -10,10 +10,11 @@ class Room:
         if chat_id not in cls.__cash__:
             cls.__cash__.update({chat_id:
                 {
-                    chat_id: None,
                     'status': 'created',
                     'img_mess': None,
-                    'master_name': None
+                    'master_name': None,
+                    'master_photo_id': None,
+                    'players': {}
                 }
             })
 
@@ -46,16 +47,17 @@ class Room:
     @classmethod
     def add_master_photo(cls, chat_id, photo_id, mess, master_name):
         if chat_id in cls.__cash__ and cls.__cash__[chat_id]['status'] == 'created':
-            cls.__cash__[chat_id][chat_id] = {'photo_id': photo_id, 'name': master_name}
+            # cls.__cash__[chat_id]['players'] = {'photo_id': photo_id, 'name': master_name}
             cls.__cash__[chat_id]['img_mess'] = mess
-            cls.__cash__[chat_id]['status'] = 'in_game'
+            cls.__cash__[chat_id]['status'] = 'wait'
             cls.__cash__[chat_id]['master_name'] = master_name
+            cls.__cash__[chat_id]['master_photo_id'] = photo_id
         else:
             return 'err'
 
     @classmethod
     def add_player(cls, chat_id, user_id, user_name, photo_id):
-        cls.__cash__[chat_id][user_id] = {'name': user_name, 'photo_id': photo_id}
+        cls.__cash__[chat_id]['players'][user_id] = {'name': user_name, 'photo_id': photo_id}
 
     # @classmethod
     # def get_ingame_rooms(cls, chat_id):
@@ -65,3 +67,8 @@ class Room:
     def not_in_romm(cls, chat_id):
         if not cls.empty(chat_id):
             pass
+
+    @classmethod
+    def change_status(cls, chat_id, status):
+        cls.__cash__[chat_id]['status'] = status
+
